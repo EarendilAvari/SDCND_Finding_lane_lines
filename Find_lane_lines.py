@@ -6,50 +6,50 @@ import cv2
 
 
 def grayscale(img):
-    """Applies the Grayscale transform
-    This will return an image with only one color channel
-    but NOTE: to see the returned image as grayscale
-    (assuming your grayscaled image is called 'gray')
-    you should call plt.imshow(gray, cmap='gray')"""
-    return cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    # Or use BGR2GRAY if you read an image with cv2.imread()
-    # return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+	"""Applies the Grayscale transform
+	This will return an image with only one color channel
+	but NOTE: to see the returned image as grayscale
+	(assuming your grayscaled image is called 'gray')
+	you should call plt.imshow(gray, cmap='gray')"""
+	return cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+	# Or use BGR2GRAY if you read an image with cv2.imread()
+	# return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
 def gaussian_blur(img, kernel_size):
-    """Applies a Gaussian Noise kernel"""
-    return cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
+	"""Applies a Gaussian Noise kernel"""
+	return cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
 
 def canny(img, low_threshold, high_threshold):
-    """Applies the Canny transform"""
-    return cv2.Canny(img, low_threshold, high_threshold)
+	"""Applies the Canny transform"""
+	return cv2.Canny(img, low_threshold, high_threshold)
 
 def region_of_interest(img, vertices):
-    """
-    Applies an image mask.
-    
-    Only keeps the region of the image defined by the polygon
-    formed from `vertices`. The rest of the image is set to black.
-    `vertices` should be a numpy array of integer points.
-    """
-    #defining a blank mask to start with
-    mask = np.zeros_like(img)   
-    
-    #defining a 3 channel or 1 channel color to fill the mask with depending on the input image
-    if len(img.shape) > 2:
-        channel_count = img.shape[2]  # i.e. 3 or 4 depending on your image
-        ignore_mask_color = (255,) * channel_count
-    else:
-        ignore_mask_color = 255
-        
-    #filling pixels inside the polygon defined by "vertices" with the fill color    
-    cv2.fillPoly(mask, vertices, ignore_mask_color)
-    
-    #returning the image only where mask pixels are nonzero
-    masked_image = cv2.bitwise_and(img, mask)
-    return masked_image
+	"""
+	Applies an image mask.
+
+	Only keeps the region of the image defined by the polygon
+	formed from `vertices`. The rest of the image is set to black.
+	`vertices` should be a numpy array of integer points.
+	"""
+	#defining a blank mask to start with
+	mask = np.zeros_like(img)
+
+	#defining a 3 channel or 1 channel color to fill the mask with depending on the input image
+	if len(img.shape) > 2:
+		channel_count = img.shape[2]  # i.e. 3 or 4 depending on your image
+		ignore_mask_color = (255,) * channel_count
+	else:
+		ignore_mask_color = 255
+
+	#filling pixels inside the polygon defined by "vertices" with the fill color
+	cv2.fillPoly(mask, vertices, ignore_mask_color)
+
+	#returning the image only where mask pixels are nonzero
+	masked_image = cv2.bitwise_and(img, mask)
+	return masked_image
 
 
-def hough_lines(img_original, img_edges, rho, theta, threshold, min_line_len, max_line_gap):
+def hough_lines(img_original, img_edges, rho, theta, threshold, min_line_len, max_line_gap, y_horizon):
 	img_lines = np.zeros_like(img_original)
 	img_points_def_lines = cv2.HoughLinesP(img_edges, rho, theta, threshold, np.array([]), min_line_len, max_line_gap)
 
@@ -69,14 +69,14 @@ def hough_lines(img_original, img_edges, rho, theta, threshold, min_line_len, ma
 		else:
 			img_points_def_lines_left.append(drawing_line)
 
-	# Create four lists, where the calculated X coordinates are saved 
+	# Create four lists, where the calculated X coordinates are saved
 	lower_x_values_right = []
 	upper_x_values_right = []
 	lower_x_values_left = []
 	upper_x_values_left = []
 
 	y_max = img_original.shape[0]	# Corresponds to the Y coordinate value at the bottom of the image
-	y_min = 320 # Corresponds to the Y coordinate value at the far horizon of the image, where the lines cannot be seen anymore
+	y_min = y_horizon # Corresponds to the Y coordinate value at the far horizon of the image, where the lines cannot be seen anymore
 
 	for drawing_line_right in img_points_def_lines_right:
 		m = (drawing_line_right[0,3] - drawing_line_right[0,1])/(drawing_line_right[0,2] - drawing_line_right[0,0])
@@ -106,15 +106,37 @@ def hough_lines(img_original, img_edges, rho, theta, threshold, min_line_len, ma
 	return img_lines
 
 def weighted_img(img_original, img_lines, alpha=0.8, beta=1., gamma=0.):
-    """
-    `img_lines` is the output of the hough_lines(), An image with lines drawn on it.
-    
-    `img_original` should be the image before any processing.
-    
-    The result image is computed as follows:
-    
-    initial_img * alpha + img * beta + gamma
-    NOTE: initial_img and img must be the same shape!
-    """
-    return cv2.addWeighted(img_original, alpha, img_lines, beta, gamma)
+	"""
+	`img_lines` is the output of the hough_lines(), An image with lines drawn on it.
 
+	`img_original` should be the image before any processing.
+
+	The result image is computed as follows:
+
+	initial_img * alpha + img * beta + gamma
+	NOTE: initial_img and img must be the same shape!
+	"""
+	return cv2.addWeighted(img_original, alpha, img_lines, beta, gamma)
+
+def houghVertices(img, x_left_bottom, x_left_top, x_right_bottom, x_right_top, y_horizon):
+	vertice_left_bottom = (x_left_bottom, img.shape[0])
+	vertice_left_top = (x_left_top, y_horizon)
+	vertice_right_bottom = (x_right_bottom, img.shape[0])
+	vertice_right_top = (x_right_top, y_horizon)
+	return np.array([[vertice_left_bottom, vertice_left_top, vertice_right_top, vertice_right_bottom]], dtype = np.int32)
+
+
+def findLanes(img, Canny_low_threshold, lane_x_left_bottom, lane_x_left_top, lane_x_right_bottom, lane_x_right_top, lane_y_horizon, 
+	Hough_rho, Hough_theta, Hough_threshold, Hough_min_line_len, Hough_max_line_gap):
+	
+	img_gray = grayscale(img)
+	img_gaussian = gaussian_blur(img_gray,5)
+	img_edges = canny(img_gaussian, Canny_low_threshold, 3*Canny_low_threshold)
+	img_edges_Hough_vertices = houghVertices(img_edges, lane_x_left_bottom, lane_x_left_top, lane_x_right_bottom, lane_x_right_top, lane_y_horizon)
+	img_edges_masked = region_of_interest(img_edges, img_edges_Hough_vertices)
+	img_lines = hough_lines(img, img_edges_masked, Hough_rho, Hough_theta, Hough_threshold, Hough_min_line_len, Hough_max_line_gap, lane_y_horizon)
+	img_output = weighted_img(img, img_lines)
+
+	return img_output
+
+# END
