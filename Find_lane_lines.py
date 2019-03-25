@@ -50,6 +50,14 @@ def region_of_interest(img, vertices):
 
 
 def hough_lines(img_original, img_edges, rho, theta, threshold, min_line_len, max_line_gap, y_horizon):
+	if not hasattr(hough_lines, "last_avg_lower_x_right"):
+		hough_lines.last_avg_lower_x_right = 0
+	if not hasattr(hough_lines, "last_avg_upper_x_right"):
+		hough_lines.last_avg_upper_x_right = 0
+	if not hasattr(hough_lines, "last_avg_lower_x_left"):
+		hough_lines.last_avg_lower_x_left = 0
+	if not hasattr(hough_lines, "last_avg_upper_x_left"):
+		hough_lines.last_avg_upper_x_left = 0
 	img_lines = np.zeros_like(img_original)
 	img_points_def_lines = cv2.HoughLinesP(img_edges, rho, theta, threshold, np.array([]), min_line_len, max_line_gap)
 
@@ -62,11 +70,12 @@ def hough_lines(img_original, img_edges, rho, theta, threshold, min_line_len, ma
 		y1 = drawing_line[0,1]
 		x2 = drawing_line[0,2]
 		y2 = drawing_line[0,3]
-		m = (y2 - y1)/(x2 - x1)
+		if x2 != x1:
+			m = (y2 - y1)/(x2 - x1)
 
-		if m > 0:
+		if (m > 0) & (x2 != x1):
 			img_points_def_lines_right.append(drawing_line)
-		else:
+		elif (m < 0) & (x2 != x1):
 			img_points_def_lines_left.append(drawing_line)
 
 	# Create four lists, where the calculated X coordinates are saved
@@ -79,23 +88,45 @@ def hough_lines(img_original, img_edges, rho, theta, threshold, min_line_len, ma
 	y_min = y_horizon # Corresponds to the Y coordinate value at the far horizon of the image, where the lines cannot be seen anymore
 
 	for drawing_line_right in img_points_def_lines_right:
-		m = (drawing_line_right[0,3] - drawing_line_right[0,1])/(drawing_line_right[0,2] - drawing_line_right[0,0])
-		x1 = drawing_line_right[0,0]
-		y1 = drawing_line_right[0,1]
-		lower_x_values_right.append((y_max - y1)/m + x1) # The lower X values are appended in the list
-		upper_x_values_right.append((y_min - y1)/m + x1) # The upper X values are appended in the list
+		if drawing_line_right[0,2] != drawing_line_right[0,0]:
+			m = (drawing_line_right[0,3] - drawing_line_right[0,1])/(drawing_line_right[0,2] - drawing_line_right[0,0])
+			x1 = drawing_line_right[0,0]
+			y1 = drawing_line_right[0,1]
+			lower_x_values_right.append((y_max - y1)/m + x1) # The lower X values are appended in the list
+			upper_x_values_right.append((y_min - y1)/m + x1) # The upper X values are appended in the list
 
 	for drawing_line_left in img_points_def_lines_left:
-		m = (drawing_line_left[0,3] - drawing_line_left[0,1])/(drawing_line_left[0,2] - drawing_line_left[0,0])
-		x1 = drawing_line_left[0,0]
-		y1 = drawing_line_left[0,1]
-		lower_x_values_left.append((y_max - y1)/m + x1) # The lower X values are appended in the list
-		upper_x_values_left.append((y_min - y1)/m + x1) # The upper X values are appended in the list
+		if drawing_line_left[0,2] != drawing_line_left[0,0]:
+			m = (drawing_line_left[0,3] - drawing_line_left[0,1])/(drawing_line_left[0,2] - drawing_line_left[0,0])
+			x1 = drawing_line_left[0,0]
+			y1 = drawing_line_left[0,1]
+			lower_x_values_left.append((y_max - y1)/m + x1) # The lower X values are appended in the list
+			upper_x_values_left.append((y_min - y1)/m + x1) # The upper X values are appended in the list
 
-	avg_lower_x_right = int(np.mean(lower_x_values_right)) # The mean for the low X value of the right line is calculated
-	avg_upper_x_right = int(np.mean(upper_x_values_right)) # The mean for the high X value of the right line is calculated
-	avg_lower_x_left = int(np.mean(lower_x_values_left)) # The mean for the low X value of the left line is calculated
-	avg_upper_x_left = int(np.mean(upper_x_values_left)) # The mean for the high X value of the left line is calculated
+	if len(lower_x_values_right) != 0:
+		avg_lower_x_right = int(np.average(lower_x_values_right)) # The mean for the low X value of the right line is calculated
+	else:
+		avg_lower_x_right = hough_lines.last_avg_lower_x_right
+
+	if len(upper_x_values_right) != 0:
+		avg_upper_x_right = int(np.average(upper_x_values_right)) # The mean for the high X value of the right line is calculated
+	else:
+		avg_upper_x_right = hough_lines.last_avg_upper_x_right
+
+	if len(lower_x_values_left) != 0: 
+		avg_lower_x_left = int(np.average(lower_x_values_left)) # The mean for the low X value of the left line is calculated
+	else:
+		avg_lower_x_left = hough_lines.last_avg_lower_x_left
+
+	if len(upper_x_values_left) != 0:
+		avg_upper_x_left = int(np.average(upper_x_values_left)) # The mean for the high X value of the left line is calculated
+	else:
+		avg_upper_x_left = hough_lines.last_avg_upper_x_left
+
+	hough_lines.last_avg_lower_x_right = avg_lower_x_right
+	hough_lines.last_avg_upper_x_right = avg_upper_x_right
+	hough_lines.last_avg_lower_x_left = avg_lower_x_left
+	hough_lines.last_avg_upper_x_left = avg_upper_x_left
 
 	# The right line is drawn using the average values
 	cv2.line(img_lines, (avg_lower_x_right, y_max), (avg_upper_x_right, y_min), (255,0,0), 10)
