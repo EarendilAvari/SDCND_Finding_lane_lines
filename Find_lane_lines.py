@@ -58,8 +58,20 @@ def hough_lines(img_original, img_edges, rho, theta, threshold, min_line_len, ma
 		hough_lines.last_avg_lower_x_left = 0
 	if not hasattr(hough_lines, "last_avg_upper_x_left"):
 		hough_lines.last_avg_upper_x_left = 0
+	if not hasattr(hough_lines, "last_img_points_def_lines"):
+		hough_lines.last_img_points_def_lines = 0
 	img_lines = np.zeros_like(img_original)
 	img_points_def_lines = cv2.HoughLinesP(img_edges, rho, theta, threshold, np.array([]), min_line_len, max_line_gap)
+
+	if not hasattr(hough_lines, "last_img_points_def_lines"):
+		hough_lines.last_img_points_def_lines = img_points_def_lines
+
+	# It is verified if "img_points_def_lines" is none or not, if it is, the value of the last cycle is used. For that the 
+	# attribute last_img_points_def_lines is used
+	if img_points_def_lines is None:
+		img_points_def_lines = hough_lines.last_img_points_def_lines
+
+	hough_lines.last_img_points_def_lines = img_points_def_lines
 
 	# Create two lists of points, one for the left line and another of the right line
 	img_points_def_lines_right = []
@@ -73,9 +85,11 @@ def hough_lines(img_original, img_edges, rho, theta, threshold, min_line_len, ma
 		if x2 != x1:
 			m = (y2 - y1)/(x2 - x1)
 
-		if (m > 0) & (x2 != x1):
+		# Though observations it is known that the detected lines corresponding to the right line have a slope between 0.5 and 1, and the
+		# slope of the lines corresponding to the left line have a slope between -0.5 and -1
+		if (m > 0.5) & (m < 1) & (x2 != x1):
 			img_points_def_lines_right.append(drawing_line)
-		elif (m < 0) & (x2 != x1):
+		elif (m < -0.5) & (m > -1) & (x2 != x1):
 			img_points_def_lines_left.append(drawing_line)
 
 	# Create four lists, where the calculated X coordinates are saved
@@ -104,22 +118,22 @@ def hough_lines(img_original, img_edges, rho, theta, threshold, min_line_len, ma
 			upper_x_values_left.append((y_min - y1)/m + x1) # The upper X values are appended in the list
 
 	if len(lower_x_values_right) != 0:
-		avg_lower_x_right = int(np.average(lower_x_values_right)) # The mean for the low X value of the right line is calculated
+		avg_lower_x_right = int(np.mean(lower_x_values_right)) # The mean for the low X value of the right line is calculated
 	else:
 		avg_lower_x_right = hough_lines.last_avg_lower_x_right
 
 	if len(upper_x_values_right) != 0:
-		avg_upper_x_right = int(np.average(upper_x_values_right)) # The mean for the high X value of the right line is calculated
+		avg_upper_x_right = int(np.mean(upper_x_values_right)) # The mean for the high X value of the right line is calculated
 	else:
 		avg_upper_x_right = hough_lines.last_avg_upper_x_right
 
 	if len(lower_x_values_left) != 0: 
-		avg_lower_x_left = int(np.average(lower_x_values_left)) # The mean for the low X value of the left line is calculated
+		avg_lower_x_left = int(np.mean(lower_x_values_left)) # The mean for the low X value of the left line is calculated
 	else:
 		avg_lower_x_left = hough_lines.last_avg_lower_x_left
 
 	if len(upper_x_values_left) != 0:
-		avg_upper_x_left = int(np.average(upper_x_values_left)) # The mean for the high X value of the left line is calculated
+		avg_upper_x_left = int(np.mean(upper_x_values_left)) # The mean for the high X value of the left line is calculated
 	else:
 		avg_upper_x_left = hough_lines.last_avg_upper_x_left
 
@@ -149,21 +163,21 @@ def weighted_img(img_original, img_lines, alpha=0.8, beta=1., gamma=0.):
 	"""
 	return cv2.addWeighted(img_original, alpha, img_lines, beta, gamma)
 
-def houghVertices(img, x_left_bottom, x_left_top, x_right_bottom, x_right_top, y_horizon):
-	vertice_left_bottom = (x_left_bottom, img.shape[0])
+def houghVertices(img, x_left_bottom, x_left_top, x_right_bottom, x_right_top,y_bottom, y_horizon):
+	vertice_left_bottom = (x_left_bottom, y_bottom)
 	vertice_left_top = (x_left_top, y_horizon)
-	vertice_right_bottom = (x_right_bottom, img.shape[0])
+	vertice_right_bottom = (x_right_bottom, y_bottom)
 	vertice_right_top = (x_right_top, y_horizon)
 	return np.array([[vertice_left_bottom, vertice_left_top, vertice_right_top, vertice_right_bottom]], dtype = np.int32)
 
 
-def findLanes(img, Canny_low_threshold, lane_x_left_bottom, lane_x_left_top, lane_x_right_bottom, lane_x_right_top, lane_y_horizon, 
+def findLanes(img, Canny_low_threshold, lane_x_left_bottom, lane_x_left_top, lane_x_right_bottom, lane_x_right_top, lane_y_bottom, lane_y_horizon, 
 	Hough_rho, Hough_theta, Hough_threshold, Hough_min_line_len, Hough_max_line_gap):
 	
 	img_gray = grayscale(img)
 	img_gaussian = gaussian_blur(img_gray,5)
 	img_edges = canny(img_gaussian, Canny_low_threshold, 3*Canny_low_threshold)
-	img_edges_Hough_vertices = houghVertices(img_edges, lane_x_left_bottom, lane_x_left_top, lane_x_right_bottom, lane_x_right_top, lane_y_horizon)
+	img_edges_Hough_vertices = houghVertices(img_edges, lane_x_left_bottom, lane_x_left_top, lane_x_right_bottom, lane_x_right_top, lane_y_bottom, lane_y_horizon)
 	img_edges_masked = region_of_interest(img_edges, img_edges_Hough_vertices)
 	img_lines = hough_lines(img, img_edges_masked, Hough_rho, Hough_theta, Hough_threshold, Hough_min_line_len, Hough_max_line_gap, lane_y_horizon)
 	img_output = weighted_img(img, img_lines)
