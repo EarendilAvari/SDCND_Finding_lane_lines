@@ -4,7 +4,12 @@ import numpy as np
 import cv2
 
 
-
+# **********************grayscale***********************
+# This function converts an image in RGB color to gray
+# scale. To do that it uses the function cvtColor from 
+# OpenCV.
+# Inputs: img: Image to be converted in RGB.
+# Output: Image converted to gray scale.
 def grayscale(img):
 	"""Applies the Grayscale transform
 	This will return an image with only one color channel
@@ -15,22 +20,39 @@ def grayscale(img):
 	# Or use BGR2GRAY if you read an image with cv2.imread()
 	# return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
+# **********************gaussian_blur***********************
+# This function applies a Gaussian Noise kernel. 
+# To do that it uses the function cvtColor from OpenCV.
+# Inputs: img: Image to be filtered.
+# 		  kernel_size: Size of the gaussian noise kernel
+# Output: Gray scale image with gaussian noise kernel applied.
 def gaussian_blur(img, kernel_size):
 	"""Applies a Gaussian Noise kernel"""
 	return cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
 
+# **************************canny****************************
+# This function applies the Canny transformation to detect 
+# edges on a grayscale image. To do that it uses the function
+# Canny from OpenCV.
+# Inputs: img: Image where the edges should be detected
+# 		  low_threshold: Minimum value of gradient for a pixel to be an edge.
+#						 If the gradient of a pixel is lower than this value, it is
+#						 for sure not an edge.
+# 		  high_threshold: Maximum value of gradient for a pixel to be an edge.
+#						 If the gradient of a pixel is higher than this value, it is
+#						 for sure an edge.
+# Output: Image where only the edges are drawn.
 def canny(img, low_threshold, high_threshold):
 	"""Applies the Canny transform"""
 	return cv2.Canny(img, low_threshold, high_threshold)
 
+# **********************region_of_interest***********************
+# This function only keeps the region of the image defined by the polygon
+# formed from `vertices`. The rest of the image is set to black.
+# Inputs: img: Image after the Canny edge detection which needs to be cutted.
+#		  vertices: Numpy array including the vertice points of the polygon.
+# Output: Image where only the edges inside the polygon defined are drawn.
 def region_of_interest(img, vertices):
-	"""
-	Applies an image mask.
-
-	Only keeps the region of the image defined by the polygon
-	formed from `vertices`. The rest of the image is set to black.
-	`vertices` should be a numpy array of integer points.
-	"""
 	#defining a blank mask to start with
 	mask = np.zeros_like(img)
 
@@ -48,7 +70,27 @@ def region_of_interest(img, vertices):
 	masked_image = cv2.bitwise_and(img, mask)
 	return masked_image
 
-
+# *************************hough_lines****************************
+# Uses the Hough transformation to determine points defining lines. To do that
+# the OpenCV function houghLinesP is used. This function returns arrays of two 
+# points describing a line. So it only describes the actual lines on the image.
+# This correspond to the real lines in the image, so if a line is dashed, 
+# it is not recognized as an entire line. To recognize the entire lines 
+# the points are separated in two groups, one with positive slope and 
+# other one with negative slope. and with those points the position X 
+# at the bottom of the image and at the far horizon of the image are 
+# calculated and with them the lines are drawn in a new image.
+# This new image only contains the detected lines.
+# Inputs: img_original: Original image where the lines will be detected
+# 		  img_edges:	Image where the edges where detected using 
+#						Canny transformation.
+#		  rho:			Distance resolution of the accumulator in pixels.
+#		  theta:		Angle resolution of the accumulator in radians.
+#		  threshold:	Accumulator threshold parameter. Only those lines are returned that get enough votes (>threshold)
+#		  min_line_len: Minimum line length. Line segments shorter than that are rejected.
+# 		  max_line_gap:	Maximum allowed gap between points on the same line to link them.
+#		  y_horizon:	y value where the lines should stop.
+# Output: Image where only the detected lines of the lane are drawn.
 def hough_lines(img_original, img_edges, rho, theta, threshold, min_line_len, max_line_gap, y_horizon):
 	if not hasattr(hough_lines, "last_avg_lower_x_right"):
 		hough_lines.last_avg_lower_x_right = 0
@@ -150,20 +192,29 @@ def hough_lines(img_original, img_edges, rho, theta, threshold, min_line_len, ma
 
 	return img_lines
 
+
+# *************************weighted_img****************************
+# It overlaps one image into another. It can be used to draw the detected lines above the
+# original image. It uses the OpenCV function addWeighted. 
+# Inputs: img_original: Original image where the lines need to be detected.
+#		  img_lines:	Image where only the detected lines of the lane are drawn.
+#		  alpha:		Weight of the original image.
+#		  beta:			Weight of the lines image.
+# 		  gamma:		Scalar added to the sum. For this case irrelevant.
 def weighted_img(img_original, img_lines, alpha=0.8, beta=1., gamma=0.):
-	"""
-	`img_lines` is the output of the hough_lines(), An image with lines drawn on it.
-
-	`img_original` should be the image before any processing.
-
-	The result image is computed as follows:
-
-	initial_img * alpha + img * beta + gamma
-	NOTE: initial_img and img must be the same shape!
-	"""
 	return cv2.addWeighted(img_original, alpha, img_lines, beta, gamma)
 
-def houghVertices(img, x_left_bottom, x_left_top, x_right_bottom, x_right_top,y_bottom, y_horizon):
+
+# *************************houghVertices***************************
+# It creates the vertices array based on 6 values. Four of the X values and two of the Y values.
+# Inputs: x_left_bottom:	Coordinate X of the vertice at the left and the bottom
+#		  x_left_top:		Coordinate X of the vertice at the left and the top
+#		  x_right_bottom:	Coordinate X of the vertice at the right and the bottom
+#		  x_right_top:		Coordinate X of the vertice at the right and the top
+#		  y_bottom:			Coordinate Y at the bottom
+#		  y_horizon:		Coordinate Y at the top
+# Output: Numpy array including the points of the four vertices of the polygon.
+def houghVertices(x_left_bottom, x_left_top, x_right_bottom, x_right_top,y_bottom, y_horizon):
 	vertice_left_bottom = (x_left_bottom, y_bottom)
 	vertice_left_top = (x_left_top, y_horizon)
 	vertice_right_bottom = (x_right_bottom, y_bottom)
@@ -171,17 +222,40 @@ def houghVertices(img, x_left_bottom, x_left_top, x_right_bottom, x_right_top,y_
 	return np.array([[vertice_left_bottom, vertice_left_top, vertice_right_top, vertice_right_bottom]], dtype = np.int32)
 
 
+# *************************findLanes********************************
+# Generalization of the entire pipeline in one function. So it is not needed
+# to execute every function by separate. It also allows to occult the entire details
+# of the pipeline.
+# Inputs: img:					Image where the lines need to be identified.
+# 		  Canny_low_threshold:	Minimum value of gradient for a pixel to be an edge.
+#						 		If the gradient of a pixel is lower than this value, it is
+#						 		for sure not an edge.
+#		  lane_x_left_bottom:	Coordinate X of the vertice at the left and the bottom of the polygon 
+#								where the lines are located.
+# 		  lane_x_left_top:		Coordinate X of the vertice at the left and the top of the polygon 
+#								where the lines are located.
+# 		  lane_x_right_bottom:	Coordinate X of the vertice at the right and the bottom of the polygon 
+#								where the lines are located.
+#		  lane_x_right_top:		Coordinate X of the vertice at the right and the top of the polygon 
+#								where the lines are located.
+#		  lane_y_bottom:		Coordinate Y at the bottom of the polygon where the lines are located.
+#		  lane_y_horizon:		Coordinate Y at the top of the polygon where the lines are located.
+#		  Hough_rho:			Distance resolution of the accumulator in pixels.
+#		  Hough_theta:			Angle resolution of the accumulator in radians.
+#		  Hough_threshold:		Accumulator threshold parameter. Only those lines are returned that get enough votes (>threshold)
+#		  Hough_min_line_len:	Minimum line length. Line segments shorter than that are rejected.
+#		  Hough_max_line_gap:	Maximum allowed gap between points on the same line to link them.
+# Output: Image with the lines identified and drawn in red.
 def findLanes(img, Canny_low_threshold, lane_x_left_bottom, lane_x_left_top, lane_x_right_bottom, lane_x_right_top, lane_y_bottom, lane_y_horizon, 
 	Hough_rho, Hough_theta, Hough_threshold, Hough_min_line_len, Hough_max_line_gap):
 	
 	img_gray = grayscale(img)
 	img_gaussian = gaussian_blur(img_gray,5)
 	img_edges = canny(img_gaussian, Canny_low_threshold, 3*Canny_low_threshold)
-	img_edges_Hough_vertices = houghVertices(img_edges, lane_x_left_bottom, lane_x_left_top, lane_x_right_bottom, lane_x_right_top, lane_y_bottom, lane_y_horizon)
+	img_edges_Hough_vertices = houghVertices(lane_x_left_bottom, lane_x_left_top, lane_x_right_bottom, lane_x_right_top, lane_y_bottom, lane_y_horizon)
 	img_edges_masked = region_of_interest(img_edges, img_edges_Hough_vertices)
 	img_lines = hough_lines(img, img_edges_masked, Hough_rho, Hough_theta, Hough_threshold, Hough_min_line_len, Hough_max_line_gap, lane_y_horizon)
 	img_output = weighted_img(img, img_lines)
 
 	return img_output
 
-# END
