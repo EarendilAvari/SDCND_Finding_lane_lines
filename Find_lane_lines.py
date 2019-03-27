@@ -100,8 +100,6 @@ def hough_lines(img_original, img_edges, rho, theta, threshold, min_line_len, ma
 		hough_lines.last_avg_lower_x_left = 0
 	if not hasattr(hough_lines, "last_avg_upper_x_left"):
 		hough_lines.last_avg_upper_x_left = 0
-	if not hasattr(hough_lines, "last_img_points_def_lines"):
-		hough_lines.last_img_points_def_lines = 0
 	img_lines = np.zeros_like(img_original)
 	img_points_def_lines = cv2.HoughLinesP(img_edges, rho, theta, threshold, np.array([]), min_line_len, max_line_gap)
 

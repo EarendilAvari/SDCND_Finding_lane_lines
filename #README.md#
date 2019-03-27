@@ -1,0 +1,13 @@
+
+# Self driving car nanodegree
+## Project 1: Finding lane lines
+
+### Description
+
+This is the first project of the Udacity's nanodegree in autonomous vehicles. In this project concepts of computer vision are used in order to detect lines on the street through a camera. For that the library OpenCV is used.
+
+For the project a pipeline of functions was developed to be applied first in images and after that in videos. 
+
+### Development process
+
+The pipeline was developed first within the Jupyter Notebook "SDCND_Project1.ipynb" with the image "solidWhiteCurve.jpg". 
